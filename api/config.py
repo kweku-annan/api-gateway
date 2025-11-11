@@ -20,6 +20,12 @@ class Config:
     # Server settings
     PORT = int(os.getenv('PORT', 5000))
 
+    # User Service
+    USER_SERVICE_URL = os.getenv('USER_SERVICE_URL', 'http://localhost:5001')
+
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE = int(os.getenv('RATE_LIMIT_PER_MINUTE', 100))
+
 
 
 class DevelopmentConfig(Config):
