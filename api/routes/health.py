@@ -1,19 +1,22 @@
 #!/usr/bin/env python
 """Health check route."""
-from flask import Blueprint, current_app
-from api.models.response_models import StandardResponse
+from flask import Blueprint, jsonify
+from api.models.response_models import HealthResponse
+
 
 health_bp = Blueprint('health', __name__)
 
-@health_bp.route('/notifications/health', methods=['GET'])
+@health_bp.route('/health', methods=['GET'])
 def health_check():
-    """Service health check endpoint"""
-    health_service = {
-        'status': 'healthy',
-        'services': {
-            'rabbitmq': current_app.queue.check_connection(),
-            'redis': current_app.cache.check_connection()
+    """Health check endpoint."""
+    health_data = HealthResponse.create(
+        status='healthy',
+        service='api-gateway',
+        dependencies={
+            'rabbitmq': 'not_configured',
+            'redis': 'not_configured'
         }
-    }
+    )
 
-    return StandardResponse.success(data=health_service, message="Health check successful"), 200
+    return jsonify({health_data}), 200
+
