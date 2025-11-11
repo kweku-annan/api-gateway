@@ -22,4 +22,22 @@ def send_email():
     # Validate for required fields
     validate_error = validate_notification_data(data)
     if validate_error:
-        return StandardResponse.error('validate_error', validate_error),
+        return jsonify(StandardResponse.error(error_code=400, error_message=validate_error))
+
+    # Process valid request and response
+    try:
+        notification_id = current_app.queue.publish_notification(
+            notification_type='email',
+            user_id=data['user_id'],
+            template_id=data['template_id'],
+            variables=data.get('variables', {})
+        )
+
+        return StandardResponse.success({
+            'notification_id': notification_id,
+            'status': 'queued', # To be an enum later
+            'message': 'Email notification queued successfully.'
+        }), 200
+
+    except Exception as e:
+        return StandardResponse.error('queue_error', str(e)), 500
