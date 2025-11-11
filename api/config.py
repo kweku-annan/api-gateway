@@ -10,12 +10,17 @@ load_dotenv()
 class Config:
     "Base Configuration"
     # Flask settings
-
     SECRET_KEY = os.getenv('SECRET_KEY')
     DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
+    # JWT settings
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
+    JWT_ALGORITHM = os.getenv('JWT_ALGORITHM', 'HS256')
+
     # Server settings
     PORT = int(os.getenv('PORT', 5000))
+
+
 
 class DevelopmentConfig(Config):
     "Development Configuration"

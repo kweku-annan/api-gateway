@@ -14,7 +14,7 @@ notifications_bp = Blueprint('notifications', __name__)
 # Endpoint to send email notification
 @require_auth
 @rate_limit
-@notifications_bp.route('/email', methods=['POST'])
+@notifications_bp.route('/notifications/email', methods=['POST'])
 def send_email():
     """Send email notification."""
     data = request.get_json()
