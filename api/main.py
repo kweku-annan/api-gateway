@@ -5,6 +5,7 @@ from flask import Flask, jsonify
 from api.config import config
 from api.routes.health import health_bp
 from api.models.response_models import StandardResponse
+from api.routes.notifications import notifications_bp
 
 
 def create_app(config_name='default'):
@@ -16,6 +17,7 @@ def create_app(config_name='default'):
 
     # Register blueprints
     app.register_blueprint(health_bp)
+    app.register_blueprint(notifications_bp, url_prefix='/notifications')
 
     @app.errorhandler(404)
     def not_found(error):
