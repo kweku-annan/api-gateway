@@ -6,6 +6,7 @@ from api.config import config
 from api.routes.health import health_bp
 from api.models.response_models import StandardResponse
 from api.routes.notifications import notifications_bp
+from api.services.queue_service import get_queue_service
 
 
 def create_app(config_name='default'):
@@ -15,9 +16,25 @@ def create_app(config_name='default'):
     # Load configuration
     app.config.from_object(config[config_name])
 
+    # Initialize services
+    with app.app_context():
+        try:
+            app.queue_service = get_queue_service()
+        except Exception as e:
+            app.logger.warning(f"Cloud not connect to RabbitMQ: {str(e)}")
+
     # Register blueprints
     app.register_blueprint(health_bp)
     app.register_blueprint(notifications_bp, url_prefix='/notifications')
+
+
+    # Add teardown handler for cleanup
+    @app.teardown_appcontext
+    def cleanup(error=None):
+        """Cleanup resources on app shutdown"""
+        if hasattr(app, 'queue_service') and app.queue_service:
+            app.queue_service.close()
+
 
     @app.errorhandler(400)
     def bad_request(error):
