@@ -19,6 +19,24 @@ def create_app(config_name='default'):
     app.register_blueprint(health_bp)
     app.register_blueprint(notifications_bp, url_prefix='/notifications')
 
+    @app.errorhandler(400)
+    def bad_request(error):
+        """Handle 400 errors"""
+        response = StandardResponse.error(
+            error='bad_request',
+            message='The request is malformed or invalid'
+        )
+        return jsonify(response), 400
+
+    @app.errorhandler(401)
+    def unauthorized(error):
+        """Handle 401 errors"""
+        response = StandardResponse.error(
+            error='unauthorized',
+            message='Authentication is required to access this resource'
+        )
+        return jsonify(response), 401
+
     @app.errorhandler(404)
     def not_found(error):
         """Handle 404 errors"""

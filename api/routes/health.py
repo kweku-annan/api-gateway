@@ -18,5 +18,5 @@ def health_check():
         }
     )
 
-    return jsonify({health_data}), 200
+    return jsonify(health_data), 200
 

@@ -1,101 +1,175 @@
 #!/usr/bin/env python3
-"""All RabbitMQ related services."""
+"""RabbitMQ Queue Service"""
+from statistics import correlation
+
 import pika
 import json
 import uuid
 from datetime import datetime
 from flask import current_app
-from api.exceptions.custom_exceptions import QueueError
 
 
-class MessageQueue:
-    """Handles RabbitMQ message publishing"""
+class QueueService:
+    """Manages RabbitMQ connections and message publishing"""
     def __init__(self):
+        """Initialize queue service (connection happens lazily)"""
         self.connection = None
         self.channel = None
-        self._connect()
+        self.exchange_name = None
 
-    def _connect(self):
-        """Establish connection to RabbitMQ"""
-        config = current_app.config
-        credentials = pika.PlainCredentials(
-            config['RABBITMQ_USER'],
-            config['RABBITMQ_PASSWORD']
-        )
-        parameters = pika.ConnectionParameters(
-            host=config['RABBITMQ_HOST'],
-            port=config['RABBITMQ_PORT'],
-            credentials=credentials
-        )
+    def connect(self):
+        """Establish connection to RabbitMQ and setup exchange/queues"""
+        try:
+            config = current_app.config
 
-        self.connection = pika.BlockingConnection(parameters)
-        self.channel = self.connection.channel()
-        self._setup_queues()
+            # Create credentials
+            credentials = pika.PlainCredentials(
+                config['RABBITMQ_USER'],
+                config['RABBITMQ_PASSWORD']
+            )
 
-    def _setup_queues(self):
-        """Declare exchange and queues"""
-        # Declare exchange
+            # Create connection parameters
+            parameters = pika.ConnectionParameters(
+                host=config['RABBITMQ_HOST'],
+                port=config['RABBITMQ_PORT'],
+                credentials=credentials,
+                heartbeat=600,
+                blocked_connection_timeout=300
+            )
+
+            # Establish connection
+            self.connection = pika.BlockingConnection(parameters)
+            self.channel = self.connection.channel()
+            self.exchange_name = config['RABBITMQ_EXCHANGE']
+
+            # Setup exchange and queues
+            self._setup_exchange_and_queues()
+
+            current_app.logger.info(f"Connected to RabbitMQ at {config['RABBITMQ_HOST']}:{config['RABBITMQ_PORT']}")
+
+        except Exception as e:
+            current_app.logger.error(f"Failed to connect to RabbitMQ: {str(e)}")
+            raise
+
+    def _setup_exchange_and_queues(self):
+        """Setup exchange, queues, and bindings"""
+        # Declare exchange (direct type as per requirements)
         self.channel.exchange_declare(
-            exchange='notifications.direct',
+            exchange=self.exchange_name,
             exchange_type='direct',
             durable=True
         )
 
-        # Declare queues and bind
-        for queue_name, routing_key in [
+        # Declare queues
+        queues = [
             ('email.queue', 'email'),
-            ('failed.queue', 'failed'),
-            ('push.queue', 'push')
-        ]:
-            self.channel.queue_declare(queue=queue_name, durable=True)
+            ('push.queue', 'push'),
+            ('failed.queue', 'failed')
+        ]
+
+        for queue_name, routing_key in queues:
+            # Declare queue
+            self.channel.queue_declare(
+                queue=queue_name,
+                durable=True,
+                arguments={
+                    'x-message-ttl': 86400000,  # 24 hours in milliseconds
+                }
+            )
+
+            # Bind queue to exchange with routing key
             self.channel.queue_bind(
-                exchange='notifications.direct',
+                exchange=self.exchange_name,
                 queue=queue_name,
                 routing_key=routing_key
             )
 
-    def publish_notification(self, notification_type, user_id, template_id,
-                             variables, request_id=None):
-        """Publish notification message to RabbitMQ"""
+        current_app.logger.info(f"Exchange and queues setup completed")
+
+    def publish_notification(
+            self,
+            notification_type,
+            user_id,
+            template_id,
+            variables=None,
+            idempotency_key=None
+    ):
+        """Publish a notification message to appropriate queue"""
+        if not self.is_connected():
+            self.connect()
+
+        notification_id = str(uuid.uuid4())
+        correlation_id = str(uuid.uuid4())
+
+        # Build message payload
         message = {
-            'notification_id': str(uuid.uuid4()),
-            'request_id': request_id or str(uuid.uuid4()),
-            'correlation_id': str(uuid.uuid4()),
+            'notification_id': notification_id,
             'type': notification_type,
             'user_id': user_id,
             'template_id': template_id,
-            'variables': variables,
+            'variables': variables or {},
+            'idempotency_key': idempotency_key,
             'timestamps': {
-                'created_at': datetime.utcnow().isoformat() + 'Z'
+                'created_at': datetime.utcnow().isoformat() + 'Z',
+                'queued_at': datetime.utcnow().isoformat() + 'Z'
             },
             'retry_count': 0,
             'max_retries': 3
         }
-
         try:
+            # Publish message to exchange with appropriate routing key
             self.channel.basic_publish(
-                exchange='notifications.direct',
+                exchange=self.exchange_name,
                 routing_key=notification_type,
                 body=json.dumps(message),
                 properties=pika.BasicProperties(
                     delivery_mode=2,  # Make message persistent
+                    correlation_id=correlation_id,
                     content_type='application/json',
+                    message_id=notification_id
                 )
             )
-            return message['notification_id']
-        except Exception as e:
-            raise QueueError(f"Failed to publish message: {str(e)}")
 
-    def check_connection(self):
-        """Check if RabbitMQ is connected"""
+            current_app.logger.info(
+                f"Published {notification_type} notification {notification_id} to queue"
+            )
+            return notification_id
+        except Exception as e:
+            current_app.logger.error(f"Failed to publish notification: {str(e)}")
+            raise
+
+    def is_connected(self):
+        """Check if RabbitMQ connection is active"""
         try:
-            return self.connection and self.connection.is_open
+            return (
+                self.connection and
+                self.connection.is_open and
+                self.channel and
+                self.channel.is_open
+            )
         except:
             return False
 
-
     def close(self):
         """Close RabbitMQ connection"""
-        if self.connection and self.connection.is_open:
-            self.connection.close()
+        try:
+            if self.channel and self.channel.is_open:
+                self.channel.close()
+            if self.connection and self.connection.is_open:
+                self.connection.close()
+            current_app.logger.info("RabbitMQ connection closed")
+        except Exception as e:
+            current_app.logger.error(f"Failed to close RabbitMQ connection: {str(e)}")
 
+# Global singleton instance
+_queue_service = None
+
+def get_queue_service():
+    """Get or create the global QueueService instance"""
+    global  _queue_service
+
+    if _queue_service is None:
+        _queue_service = QueueService()
+        _queue_service.connect()
+
+    return _queue_service

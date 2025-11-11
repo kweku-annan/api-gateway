@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 from api.models.response_models import StandardResponse, NotificationResponse, StatusResponse
 from api.models.request_models import EmailNotificationRequest, PushNotificationRequest
+from api.middleware.auth import require_api_key
 
 notifications_bp = Blueprint('notifications', __name__)
 
@@ -16,6 +17,7 @@ notifications_bp = Blueprint('notifications', __name__)
 notification_store = {}
 
 @notifications_bp.route('/email', methods=['POST'])
+@require_api_key
 def send_email_notification():
     """Send email notification."""
     data = request.get_json()
@@ -78,6 +80,7 @@ def send_email_notification():
     return jsonify(response), 202
 
 @notifications_bp.route('/push', methods=['POST'])
+@require_api_key
 def send_push_notification():
     """Send push notification."""
     data = request.get_json()
@@ -140,6 +143,7 @@ def send_push_notification():
     return jsonify(response), 202
 
 @notifications_bp.route('/status/<notification_id>', methods=['GET'])
+@require_api_key
 def get_notification_status(notification_id):
     """Get notification status."""
     notification = notification_store.get(notification_id)
