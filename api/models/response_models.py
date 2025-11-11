@@ -16,12 +16,12 @@ class StandardResponse:
         }
 
     @staticmethod
-    def error(error_code, error_message, meta=None):
+    def error(error_code, error_message, message, meta=None):
         """Standardize the error response format."""
         return {
             "success": False,
             "error": error_message,
             "error_code": error_code,
-            "message": "Validation failed",
+            "message": message,
             "meta": meta
         }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Core endpoint for notifications requests and responses management."""
 from flask import Blueprint, request, jsonify, current_app
-from api.middleware.auth import require_path
+from api.middleware.auth import require_auth
 from api.middleware.rate_limiter import rate_limit
 from api.models.request_models import NotificationRequest
 from api.models.request_models import StandardResponse
@@ -22,7 +22,9 @@ def send_email():
     # Validate for required fields
     validate_error = validate_notification_data(data)
     if validate_error:
-        return jsonify(StandardResponse.error(error_code=400, error_message=validate_error))
+        return jsonify(
+            StandardResponse.error(error_code=400, message="Validation error!", error_message=validate_error)
+        ), 200
 
     # Process valid request and response
     try:
