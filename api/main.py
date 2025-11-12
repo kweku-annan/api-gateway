@@ -16,16 +16,17 @@ def create_app(config_name='default'):
     # Load configuration
     app.config.from_object(config[config_name])
 
+    # Register blueprints
+    app.register_blueprint(health_bp)
+    app.register_blueprint(notifications_bp, url_prefix='/notifications')
+
     # Initialize services
     with app.app_context():
         try:
             app.queue_service = get_queue_service()
         except Exception as e:
             app.logger.warning(f"Cloud not connect to RabbitMQ: {str(e)}")
-
-    # Register blueprints
-    app.register_blueprint(health_bp)
-    app.register_blueprint(notifications_bp, url_prefix='/notifications')
+            app.queue_service = None
 
 
     # Add teardown handler for cleanup
@@ -34,6 +35,7 @@ def create_app(config_name='default'):
         """Cleanup resources on app shutdown"""
         if hasattr(app, 'queue_service') and app.queue_service:
             app.queue_service.close()
+            # pass
 
 
     @app.errorhandler(400)
@@ -49,7 +51,8 @@ def create_app(config_name='default'):
     def unauthorized(error):
         """Handle 401 errors"""
         response = StandardResponse.error(
-            error='unauthorized',
+            error='unauthorized',)
+
             message='Authentication is required to access this resource'
         )
         return jsonify(response), 401
