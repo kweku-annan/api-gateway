@@ -2,6 +2,7 @@
 """Flask application factory."""
 
 from flask import Flask, jsonify
+import os
 from api.config import config
 from api.routes.health import health_bp
 from api.models.response_models import StandardResponse
@@ -10,8 +11,12 @@ from api.services.queue_service import get_queue_service
 from api.services.cache_service import get_cache_service
 from api.utils.logger import setup_logging
 
-def create_app(config_name='default'):
+def create_app(config_name=None):
     """Application factory pattern"""
+    # Use FLASK_ENV environment variable if config_name not provided
+    if config_name is None:
+        config_name = os.getenv('FLASK_ENV', 'production')
+
     app = Flask(__name__)
 
     # Load configuration
