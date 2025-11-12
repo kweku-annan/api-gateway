@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from api.models.response_models import StandardResponse, NotificationResponse, StatusResponse
 from api.models.request_models import EmailNotificationRequest, PushNotificationRequest
 from api.middleware.auth import require_api_key
+from api.middleware.rate_limiter import rate_limit
 
 # Create blueprint for notification routes
 notifications_bp = Blueprint('notifications', __name__)
@@ -20,6 +21,7 @@ notifications_bp = Blueprint('notifications', __name__)
 
 @notifications_bp.route('/email', methods=['POST'])
 @require_api_key
+@rate_limit
 def send_email_notification():
     """
     Send email notification
@@ -35,6 +37,14 @@ def send_email_notification():
             message='Validation failed: ' + ', '.join(validation_errors)
         )
         return jsonify(response), 400
+
+    # Check idempotency if key provided and Redis available
+    idempotency_key = data.get('idempotency_key')
+    if idempotency_key and current_app.cache_service:
+        cached_response = current_app.cache_service.check_idempotency(idempotency_key)
+        if cached_response:
+            current_app.logger.info(f"Returning cached response for idempotency key: {idempotency_key}")
+            return jsonify(cached_response), 20
 
     # Check if queue service is available
     if not current_app.queue_service or not current_app.queue_service.is_connected():
@@ -69,6 +79,23 @@ def send_email_notification():
             message='Email notification queued successfully'
         )
 
+        # Store notification status in Redis
+        if current_app.cache_service:
+            status_data = {
+                'notification_id': notification_id,
+                'type': 'email',
+                'status': 'queued',
+                'user_id': data['user_id'],
+                'template_id': data['template_id'],
+                'created_at': datetime.utcnow().isoformat() + 'Z',
+                'updated_at': datetime.utcnow().isoformat() + 'Z'
+            }
+            current_app.cache_service.set_notification_status(notification_id, status_data)
+
+            # Store for idempotency if key provided
+            if idempotency_key:
+                current_app.cache_service.store_idempotency(idempotency_key, response)
+
         return jsonify(response), 202
 
     except Exception as e:
@@ -82,6 +109,7 @@ def send_email_notification():
 
 @notifications_bp.route('/push', methods=['POST'])
 @require_api_key
+@rate_limit
 def send_push_notification():
     """
     Send push notification
@@ -98,6 +126,13 @@ def send_push_notification():
         )
         return jsonify(response), 400
 
+    # Check idempotency
+    idempotency_key = data.get('idempotency_key')
+    if idempotency_key and current_app.cache_service:
+        cached_response = current_app.cache_service.check_idempotency(idempotency_key)
+        if cached_response:
+            return jsonify(cached_response), 202
+
     # Check if queue service is available
     if not current_app.queue_service or not current_app.queue_service.is_connected():
         response = StandardResponse.error(
@@ -113,7 +148,7 @@ def send_push_notification():
             user_id=data['user_id'],
             template_id=data['template_id'],
             variables=data.get('variables', {}),
-            idempotency_key=data.get('idempotency_key')
+            idempotency_key=idempotency_key
         )
 
         # Calculate estimated delivery
@@ -130,6 +165,23 @@ def send_push_notification():
             data=response_data,
             message='Push notification queued successfully'
         )
+
+        # Store notification status in Redis
+        if current_app.cache_service:
+            status_data = {
+                'notification_id': notification_id,
+                'type': 'push',
+                'status': 'queued',
+                'user_id': data['user_id'],
+                'template_id': data['template_id'],
+                'created_at': datetime.utcnow().isoformat() + 'Z',
+                'updated_at': datetime.utcnow().isoformat() + 'Z'
+            }
+            current_app.cache_service.set_notification_status(notification_id, status_data)
+
+            # Store for idempotency
+            if idempotency_key:
+                current_app.cache_service.store_idempotency(idempotency_key, response)
 
         return jsonify(response), 202
 
@@ -150,8 +202,40 @@ def get_notification_status(notification_id):
     Retrieve the status of a previously submitted notification
 
     """
-    response = StandardResponse.error(
-        error='not_implemented',
-        message='Status tracking will be available after Redis integration'
+    # Check if cache service is available
+    if not current_app.cache_service or not current_app.cache_service.is_connected():
+        response = StandardResponse.error(
+            error='service_unavailable',
+            message='Status service is temporarily unavailable'
+        )
+        return jsonify(response), 503
+
+    # Get status from Redis
+    status_data = current_app.cache_service.get_notification_status(notification_id)
+
+    if not status_data:
+        response = StandardResponse.error(
+            error='not_found',
+            message=f'Notification {notification_id} not found'
+        )
+        return jsonify(response), 404
+
+    # Create status response
+    response_data = StatusResponse.create(
+        notification_id=status_data['notification_id'],
+        status=status_data['status'],
+        created_at=status_data['created_at'],
+        updated_at=status_data['updated_at'],
+        delivery_info={
+            'type': status_data['type'],
+            'user_id': status_data['user_id'],
+            'template_id': status_data['template_id']
+        }
     )
-    return jsonify(response), 501
+
+    response = StandardResponse.success(
+        data=response_data,
+        message='Notification status retrieved successfully'
+    )
+
+    return jsonify(response), 200
