@@ -7,3 +7,9 @@ __pycache__/
 .db
 .pytest_cache/
 Thumbs.db
+DOCKER_FIX_SUMMARY.md
+GITHUB_ACTIONS_RECOMMENDATIONS.md
+README_DOCKER_FIX.md
+gunicorn-access.log
+gunicorn-error.log
+PRODUCTION_READINESS_REPORT.md

@@ -77,7 +77,7 @@ def setup_logging(app):
     def after_request(response):
         """Log request completion with duration"""
         if hasattr(g, 'request_start_time'):
-            duration = (datetime.utcnow() - g.request_start_time).total_milliseconds()
+            duration = (datetime.utcnow() - g.request_start_time).total_seconds() * 1000
             app.logger.info(
                 f"{request.method} {request.path} - {response.status_code} - {duration:.2f}ms"
             )
