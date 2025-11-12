@@ -51,8 +51,7 @@ def create_app(config_name='default'):
     def unauthorized(error):
         """Handle 401 errors"""
         response = StandardResponse.error(
-            error='unauthorized',)
-
+            error='unauthorized',
             message='Authentication is required to access this resource'
         )
         return jsonify(response), 401

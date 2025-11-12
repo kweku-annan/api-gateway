@@ -26,6 +26,12 @@ class Config:
     RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'guest')
     RABBITMQ_EXCHANGE = os.getenv('RABBITMQ_EXCHANGE', 'notifications.direct')
 
+    # Redis settings
+    REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+    REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+    REDIS_DB = int(os.getenv('REDIS_DB', 0))
+    REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None)
+
 class DevelopmentConfig(Config):
     """Development configuration"""
     DEBUG = True
