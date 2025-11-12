@@ -1,18 +1,47 @@
-#!/usr/bin/env python3
-"""Utility functions for validating request data"""
+"""
+Additional validation utilities
+"""
 
-def validate_notification_data(data):
-    """"
-    Validates requests data for notifications.
-    -- Checks for required fields and correct data types.
+import re
+from typing import Optional
+
+
+def is_valid_uuid(uuid_string: str) -> bool:
     """
-    if not data.get("user_id"):
-        return "'user_id' is required."
-    if not isinstance(data.get("user_id"), str):
-        return "'user_id' must be a string."
-    if not data.get("template_id"):
-        return "'template_id' is required."
-    if not isinstance(data.get("template_id"), str):
-        return "'template_id' must be a string."
+    Validate if string is a valid UUID
 
-    return None
+    Args:
+        uuid_string: String to validate
+
+    Returns:
+        bool: True if valid UUID, False otherwise
+    """
+    uuid_pattern = re.compile(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        re.IGNORECASE
+    )
+    return bool(uuid_pattern.match(uuid_string))
+
+
+def sanitize_template_variables(variables: dict) -> dict:
+    """
+    Sanitize template variables to prevent injection
+
+    Args:
+        variables: Dictionary of template variables
+
+    Returns:
+        Sanitized variables dictionary
+    """
+    sanitized = {}
+    for key, value in variables.items():
+        # Ensure key and value are strings
+        key_str = str(key).strip()
+        value_str = str(value).strip()
+
+        # Basic sanitization (remove potential script tags)
+        value_str = re.sub(r'<script[^>]*>.*?</script>', '', value_str, flags=re.IGNORECASE)
+
+        sanitized[key_str] = value_str
+
+    return sanitized

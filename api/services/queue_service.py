@@ -1,6 +1,7 @@
-#!/usr/bin/env python3
-"""RabbitMQ Queue Service"""
-from statistics import correlation
+"""
+RabbitMQ Queue Service
+Handles message queue operations for notification system
+"""
 
 import pika
 import json
@@ -10,7 +11,11 @@ from flask import current_app
 
 
 class QueueService:
-    """Manages RabbitMQ connections and message publishing"""
+    """
+    Manages RabbitMQ connections and message publishing
+    Implements the queue structure from project requirements
+    """
+
     def __init__(self):
         """Initialize queue service (connection happens lazily)"""
         self.connection = None
@@ -18,7 +23,9 @@ class QueueService:
         self.exchange_name = None
 
     def connect(self):
-        """Establish connection to RabbitMQ and setup exchange/queues"""
+        """
+        Establish connection to RabbitMQ and setup exchange/queues
+        """
         try:
             config = current_app.config
 
@@ -52,7 +59,11 @@ class QueueService:
             raise
 
     def _setup_exchange_and_queues(self):
-        """Setup exchange, queues, and bindings"""
+        """
+        Setup exchange, queues and bindings
+        Exchange: notifications.direct (direct type)
+        Queues: email.queue, push.queue, failed.queue
+        """
         # Declare exchange (direct type as per requirements)
         self.channel.exchange_declare(
             exchange=self.exchange_name,
@@ -84,7 +95,7 @@ class QueueService:
                 routing_key=routing_key
             )
 
-        current_app.logger.info(f"Exchange and queues setup completed")
+        current_app.logger.info(f"Exchange and queues setup complete")
 
     def publish_notification(
             self,
@@ -94,16 +105,34 @@ class QueueService:
             variables=None,
             idempotency_key=None
     ):
-        """Publish a notification message to appropriate queue"""
+        """
+        Publish a notification message to the appropriate queue
+
+        Args:
+            notification_type: 'email' or 'push'
+            user_id: UUID of the user
+            template_id: Template identifier
+            variables: Dictionary of template variables
+            idempotency_key: Optional idempotency key
+
+        Returns:
+            notification_id: UUID of the created notification
+
+        Raises:
+            Exception: If publishing fails
+        """
+        # Ensure connection
         if not self.is_connected():
             self.connect()
 
+        # Generate notification ID
         notification_id = str(uuid.uuid4())
         correlation_id = str(uuid.uuid4())
 
         # Build message payload
         message = {
             'notification_id': notification_id,
+            'correlation_id': correlation_id,
             'type': notification_type,
             'user_id': user_id,
             'template_id': template_id,
@@ -116,16 +145,17 @@ class QueueService:
             'retry_count': 0,
             'max_retries': 3
         }
+
         try:
-            # Publish message to exchange with appropriate routing key
+            # Publish message to exchange with routing key
             self.channel.basic_publish(
                 exchange=self.exchange_name,
-                routing_key=notification_type,
+                routing_key=notification_type,  # 'email' or 'push'
                 body=json.dumps(message),
                 properties=pika.BasicProperties(
-                    delivery_mode=2,  # Make message persistent
-                    correlation_id=correlation_id,
+                    delivery_mode=2,  # Persistent message
                     content_type='application/json',
+                    correlation_id=correlation_id,
                     message_id=notification_id
                 )
             )
@@ -133,19 +163,26 @@ class QueueService:
             current_app.logger.info(
                 f"Published {notification_type} notification {notification_id} to queue"
             )
+
             return notification_id
+
         except Exception as e:
-            current_app.logger.error(f"Failed to publish notification: {str(e)}")
+            current_app.logger.error(f"Failed to publish message: {str(e)}")
             raise
 
     def is_connected(self):
-        """Check if RabbitMQ connection is active"""
+        """
+        Check if RabbitMQ connection is active
+
+        Returns:
+            bool: True if connected, False otherwise
+        """
         try:
             return (
-                self.connection and
-                self.connection.is_open and
-                self.channel and
-                self.channel.is_open
+                    self.connection and
+                    self.connection.is_open and
+                    self.channel and
+                    self.channel.is_open
             )
         except:
             return False
@@ -159,14 +196,21 @@ class QueueService:
                 self.connection.close()
             current_app.logger.info("RabbitMQ connection closed")
         except Exception as e:
-            current_app.logger.error(f"Failed to close RabbitMQ connection: {str(e)}")
+            current_app.logger.error(f"Error closing RabbitMQ connection: {str(e)}")
 
-# Global singleton instance
+
+# Global instance
 _queue_service = None
 
+
 def get_queue_service():
-    """Get or create the global QueueService instance"""
-    global  _queue_service
+    """
+    Get or create the global QueueService instance
+
+    Returns:
+        QueueService instance
+    """
+    global _queue_service
 
     if _queue_service is None:
         _queue_service = QueueService()

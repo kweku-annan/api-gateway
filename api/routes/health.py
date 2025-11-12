@@ -14,14 +14,20 @@ def health_check():
     if hasattr(current_app, 'queue_service') and current_app.queue_service:
         if current_app.queue_service.is_connected():
             rabbitmq_status = 'connected'
+
+    # Check Redis status
+    redis_status = 'disconnected'
+    if hasattr(current_app, 'cache_service') and current_app.cache_service:
+        if current_app.cache_service.is_connected():
+            redis_status = 'connected'
+
     health_data = HealthResponse.create(
         status='healthy',
         service='api-gateway',
         dependencies={
             'rabbitmq': rabbitmq_status,
-            'redis': 'not_configured'
+            'redis': redis_status
         }
     )
-
     return jsonify(health_data), 200
 

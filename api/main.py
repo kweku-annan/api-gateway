@@ -7,7 +7,8 @@ from api.routes.health import health_bp
 from api.models.response_models import StandardResponse
 from api.routes.notifications import notifications_bp
 from api.services.queue_service import get_queue_service
-
+from api.services.cache_service import get_cache_service
+from api.utils.logger import setup_logging
 
 def create_app(config_name='default'):
     """Application factory pattern"""
@@ -20,7 +21,10 @@ def create_app(config_name='default'):
     app.register_blueprint(health_bp)
     app.register_blueprint(notifications_bp, url_prefix='/notifications')
 
-    # Initialize services
+    # Setup logging
+    setup_logging(app)
+
+    # Initialize queue services
     with app.app_context():
         try:
             app.queue_service = get_queue_service()
@@ -28,14 +32,25 @@ def create_app(config_name='default'):
             app.logger.warning(f"Cloud not connect to RabbitMQ: {str(e)}")
             app.queue_service = None
 
+    # Initialize cache service
+    with app.app_context():
+        try:
+            app.cache_service = get_cache_service()
+        except Exception as e:
+            app.logger.warning(f"Could not connect to Redis: {str(e)}")
+            app.cache_service = None
+
 
     # Add teardown handler for cleanup
     @app.teardown_appcontext
     def cleanup(error=None):
         """Cleanup resources on app shutdown"""
         if hasattr(app, 'queue_service') and app.queue_service:
-            app.queue_service.close()
-            # pass
+            # app.queue_service.close()
+            pass
+        if hasattr(app, 'cache_service') and app.cache_service:
+            # app.cache_service.close()
+            pass
 
 
     @app.errorhandler(400)

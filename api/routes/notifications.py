@@ -44,7 +44,7 @@ def send_email_notification():
         cached_response = current_app.cache_service.check_idempotency(idempotency_key)
         if cached_response:
             current_app.logger.info(f"Returning cached response for idempotency key: {idempotency_key}")
-            return jsonify(cached_response), 20
+            return jsonify(cached_response), 202
 
     # Check if queue service is available
     if not current_app.queue_service or not current_app.queue_service.is_connected():

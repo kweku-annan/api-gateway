@@ -32,6 +32,9 @@ class Config:
     REDIS_DB = int(os.getenv('REDIS_DB', 0))
     REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None)
 
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE = int(os.getenv('RATE_LIMIT_PER_MINUTE', 100))  # requests
+
 class DevelopmentConfig(Config):
     """Development configuration"""
     DEBUG = True
