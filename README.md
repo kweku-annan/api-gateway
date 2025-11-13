@@ -144,6 +144,25 @@ python run.py
 
 Application will be available at `http://localhost:5000`
 
+### Railway Deployment (Production)
+
+Deploy to Railway.app with one click:
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
+
+**Quick Setup:**
+1. Click "Deploy on Railway" or push to GitHub
+2. Add environment variables (API_KEYS, RABBITMQ_URL, REDIS_URL)
+3. Railway auto-detects Flask and uses gunicorn
+
+**📖 Detailed Guide:** See [RAILWAY_DEPLOYMENT_GUIDE.md](./RAILWAY_DEPLOYMENT_GUIDE.md) for complete deployment instructions, troubleshooting, and best practices.
+
+**Required Files:**
+- ✅ `Procfile` - Defines start command
+- ✅ `railway.json` - Railway configuration
+- ✅ `nixpacks.toml` - Build configuration
+- ✅ `runtime.txt` - Python version
+
 ### Docker Deployment
 
 1. **Using docker-compose (recommended)**

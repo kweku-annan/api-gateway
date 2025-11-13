@@ -149,6 +149,7 @@ class QueueService:
         # Generate notification ID
         notification_id = str(uuid.uuid4())
         correlation_id = str(uuid.uuid4())
+        request_id = str(uuid.uuid4())
 
         # Build message payload
         message = {
@@ -173,7 +174,8 @@ class QueueService:
             "subject": subject,
             "content": content,
             "html_content": html_content,
-            "metadata": metadata or {}
+            "metadata": metadata or {},
+            "request_id": request_id
         }
 
         try:

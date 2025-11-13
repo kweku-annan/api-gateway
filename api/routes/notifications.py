@@ -29,14 +29,14 @@ def send_email_notification():
     """
     data = request.get_json()
 
-    # Validate request
-    validation_errors = EmailNotificationRequest.validate(data, 'email')
-    if validation_errors:
-        response = StandardResponse.error(
-            error='validation_error',
-            message='Validation failed: ' + ', '.join(validation_errors)
-        )
-        return jsonify(response), 400
+    # # Validate request
+    # validation_errors = EmailNotificationRequest.validate(data, 'email')
+    # if validation_errors:
+    #     response = StandardResponse.error(
+    #         error='validation_error',
+    #         message='Validation failed: ' + ', '.join(validation_errors)
+    #     )
+    #     return jsonify(response), 400
 
     # Check idempotency if key provided and Redis available
     idempotency_key = data.get('idempotency_key')
