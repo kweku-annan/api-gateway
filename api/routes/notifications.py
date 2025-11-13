@@ -61,7 +61,13 @@ def send_email_notification():
             user_id=data['user_id'],
             template_id=data['template_id'],
             variables=data.get('variables', {}),
-            idempotency_key=data.get('idempotency_key')
+            idempotency_key=data.get('idempotency_key'),
+            to_email=data.get('to_email'),
+            from_email=data.get('from_email'),
+            subject=data.get('subject'),
+            content=data.get('content'),
+            html_content=data.get('html_content'),
+            metadata=data.get('metadata', {})
         )
 
         # Calculate estimated delivery
@@ -146,9 +152,12 @@ def send_push_notification():
         notification_id = current_app.queue_service.publish_notification(
             notification_type='push',
             user_id=data['user_id'],
-            template_id=data['template_id'],
-            variables=data.get('variables', {}),
-            idempotency_key=idempotency_key
+            # template_id=data['template_id'],
+            # variables=data.get('variables', {}),
+            idempotency_key=idempotency_key,
+            title=data.get('title'),
+            msg=data.get('message'),
+            player_id=data.get('player_id')
         )
 
         # Calculate estimated delivery

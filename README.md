@@ -23,6 +23,36 @@ Client → API Gateway → RabbitMQ → [Email Service | Push Service]
                   Redis (cache, rate limiting, status)
 ```
 
+## Microservices
+
+This API Gateway is part of a distributed notification system consisting of the following microservices:
+
+### Service Repositories
+
+1. **API Gateway** (This Repository)
+   - Repository: [https://github.com/kweku-annan/api-gateway](https://github.com/kweku-annan/api-gateway)
+   - Description: Entry point for the notification system. Handles authentication, validation, rate limiting, and message routing.
+
+2. **Email Service**
+   - Repository: [https://github.com/rillexhacks/hng-stage4-email-service](https://github.com/rillexhacks/hng-stage4-email-service)
+   - Description: Processes email notifications from the queue and sends emails via SMTP or email providers.
+
+3. **Push Notifications Service**
+   - Repository: [https://github.com/whotterre/push_notifications](https://github.com/whotterre/push_notifications)
+   - Description: Handles push notifications for mobile and web applications.
+
+4. **User Service**
+   - Repository: [https://github.com/Gentwocoder/HNG-STAGE4](https://github.com/Gentwocoder/HNG-STAGE4)
+   - Description: Manages user data, preferences, and notification settings.
+
+### Service Communication
+
+All services communicate asynchronously via **RabbitMQ** message queues:
+- API Gateway publishes messages to queues
+- Worker services (Email, Push) consume messages from their respective queues
+- User Service provides user data and preferences
+- Redis is used for caching, rate limiting, and status tracking across services
+
 ## API Endpoints
 
 ### Health Check

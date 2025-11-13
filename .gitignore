@@ -13,3 +13,4 @@ README_DOCKER_FIX.md
 gunicorn-access.log
 gunicorn-error.log
 PRODUCTION_READINESS_REPORT.md
+RABBITMQ_URL_GUIDE.md

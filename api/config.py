@@ -19,7 +19,11 @@ class Config:
     # Remove empty strings and whitespace
     API_KEYS = [key.strip() for key in API_KEYS if key.strip()]
 
-    #RabbitMQ settings
+    # RabbitMQ settings
+    # Support both URL format (preferred) and individual variables (fallback)
+    RABBITMQ_URL = os.getenv('RABBITMQ_URL', None)
+
+    # Individual settings (used as fallback if RABBITMQ_URL is not set)
     RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'localhost')
     RABBITMQ_PORT = int(os.getenv('RABBITMQ_PORT', 5672))
     RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'guest')

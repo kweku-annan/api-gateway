@@ -25,24 +25,36 @@ class QueueService:
     def connect(self):
         """
         Establish connection to RabbitMQ and setup exchange/queues
+        Supports both RABBITMQ_URL and individual config variables
         """
         try:
             config = current_app.config
 
-            # Create credentials
-            credentials = pika.PlainCredentials(
-                config['RABBITMQ_USER'],
-                config['RABBITMQ_PASSWORD']
-            )
+            # Check if RABBITMQ_URL is provided (CloudAMQP, RabbitMQ Cloud, etc.)
+            if config.get('RABBITMQ_URL'):
+                # Use URL-based connection (supports amqp://, amqps://, etc.)
+                parameters = pika.URLParameters(config['RABBITMQ_URL'])
+                # Override heartbeat and timeout for production stability
+                parameters.heartbeat = 600
+                parameters.blocked_connection_timeout = 300
 
-            # Create connection parameters
-            parameters = pika.ConnectionParameters(
-                host=config['RABBITMQ_HOST'],
-                port=config['RABBITMQ_PORT'],
-                credentials=credentials,
-                heartbeat=600,
-                blocked_connection_timeout=300
-            )
+                current_app.logger.info(f"Connecting to RabbitMQ via URL")
+            else:
+                # Fallback to individual configuration variables
+                credentials = pika.PlainCredentials(
+                    config['RABBITMQ_USER'],
+                    config['RABBITMQ_PASSWORD']
+                )
+
+                parameters = pika.ConnectionParameters(
+                    host=config['RABBITMQ_HOST'],
+                    port=config['RABBITMQ_PORT'],
+                    credentials=credentials,
+                    heartbeat=600,
+                    blocked_connection_timeout=300
+                )
+
+                current_app.logger.info(f"Connecting to RabbitMQ at {config['RABBITMQ_HOST']}:{config['RABBITMQ_PORT']}")
 
             # Establish connection
             self.connection = pika.BlockingConnection(parameters)
@@ -52,7 +64,7 @@ class QueueService:
             # Setup exchange and queues
             self._setup_exchange_and_queues()
 
-            current_app.logger.info(f"Connected to RabbitMQ at {config['RABBITMQ_HOST']}:{config['RABBITMQ_PORT']}")
+            current_app.logger.info("Successfully connected to RabbitMQ")
 
         except Exception as e:
             current_app.logger.error(f"Failed to connect to RabbitMQ: {str(e)}")
@@ -74,8 +86,8 @@ class QueueService:
         # Declare queues
         queues = [
             ('email.queue', 'email'),
-            ('push.queue', 'push'),
-            ('failed.queue', 'failed')
+            ('push.queue', 'push')
+            # ('failed.queue', 'failed')
         ]
 
         for queue_name, routing_key in queues:
@@ -83,9 +95,9 @@ class QueueService:
             self.channel.queue_declare(
                 queue=queue_name,
                 durable=True,
-                arguments={
-                    'x-message-ttl': 86400000,  # 24 hours in milliseconds
-                }
+                auto_delete=False,
+                exclusive=False,
+                arguments=None  # Match Go service (nil arguments)
             )
 
             # Bind queue to exchange with routing key
@@ -101,9 +113,18 @@ class QueueService:
             self,
             notification_type,
             user_id,
-            template_id,
+            template_id=None,
             variables=None,
-            idempotency_key=None
+            idempotency_key=None,
+            title=None,
+            msg=None,
+            player_id=None,
+            to_email=None,
+            from_email=None,
+            subject=None,
+            content=None,
+            html_content=None,
+            metadata=None
     ):
         """
         Publish a notification message to the appropriate queue
@@ -143,7 +164,16 @@ class QueueService:
                 'queued_at': datetime.utcnow().isoformat() + 'Z'
             },
             'retry_count': 0,
-            'max_retries': 3
+            'max_retries': 3,
+            "title": title,
+            "message": msg,
+            "player_id": player_id,
+            "to_email": to_email,
+            "from_email": from_email,
+            "subject": subject,
+            "content": content,
+            "html_content": html_content,
+            "metadata": metadata or {}
         }
 
         try:
